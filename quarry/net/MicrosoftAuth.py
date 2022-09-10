@@ -73,7 +73,7 @@ def getMicrosoftAccessToken(authCode):
 
 def getXBLToken(msftAccessToken):
     data = {
-        "RelyingParty": "https://auth.xboxlive.com",
+        "RelyingParty": "http://auth.xboxlive.com",
         "TokenType": "JWT",
         "properties": {
             "AuthMethod": "RPS",
