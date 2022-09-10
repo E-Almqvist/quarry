@@ -1,16 +1,23 @@
+import base64
 import os
 import sys
 import hashlib
 
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import ciphers, serialization
+from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15
 from cryptography.hazmat.primitives.ciphers import algorithms, modes
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.hashes import SHA1
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+
+from quarry.net.auth import PlayerPublicKey
 
 backend = default_backend()
 
 PY3 = sys.version_info > (3,)
-
+_yggdrasil_key = None
 
 class Cipher(object):
     def __init__(self):
@@ -98,3 +105,50 @@ def decrypt_secret(keypair, data):
     return keypair.decrypt(
         ciphertext=data,
         padding=padding.PKCS1v15())
+
+
+def get_yggdrasil_session_key():
+    global _yggdrasil_key
+
+    if _yggdrasil_key is not None:
+        return _yggdrasil_key
+
+    yggdrasil_key_path = os.path.abspath(os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "data",
+            "keys",
+            "yggdrasil_session_pubkey.der"))
+    yggdrasil_key_file = open(yggdrasil_key_path, "rb")
+    _yggdrasil_key = import_public_key(yggdrasil_key_file.read())
+
+    return _yggdrasil_key
+
+
+# Verify 1.19 signature
+def verify_mojang_v1_signature(data: PlayerPublicKey):
+    # Need key in PEM format
+    key_text = base64.encodebytes(data.key.public_bytes(Encoding.DER, PublicFormat.SubjectPublicKeyInfo)).decode('ISO-8859-1')
+    e = "-----BEGIN RSA PUBLIC KEY-----\n" + key_text + "-----END RSA PUBLIC KEY-----\n"
+
+    try:
+        # Signature is timestamp as string + public key in PEM format
+        get_yggdrasil_session_key().verify(data.signature, bytes(str(data.expiry) + e, 'ascii'), PKCS1v15(), SHA1())
+        return True
+    except InvalidSignature:
+        return False
+
+
+# Verify 1.19.1+ signature
+def verify_mojang_v2_signature(data: PlayerPublicKey, uuid):
+    if uuid is None:
+        return False
+
+    try:
+        # Signature is uuid bytes + timestamp bytes + public key bytes
+        key_bytes = data.key.public_bytes(Encoding.DER, PublicFormat.SubjectPublicKeyInfo)
+        get_yggdrasil_session_key()\
+            .verify(data.signature, uuid.bytes + data.expiry.to_bytes(8, 'big') + key_bytes, PKCS1v15(), SHA1())
+        return True
+    except InvalidSignature:
+        return False

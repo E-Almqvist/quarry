@@ -2,8 +2,12 @@
 Example "chat room" server
 
 This server authenticates players, then spawns them in an empty world and does
-the bare minimum to keep them in-game. Players can speak to eachother using
+the bare minimum to keep them in-game. Players can speak to each other using
 chat.
+
+No attempt is made to handle signed chat messages. 1.19+ clients will receive
+system messages instead. See server_chat_room_advanced.py for an implementation
+which does handle signed chat.
 
 Supports Minecraft 1.16.3+.
 """
@@ -33,38 +37,46 @@ class ChatRoomProtocol(ServerProtocol):
         is_reduced_debug = False
         is_debug = False
         is_flat = False
-        dimension_count = 1
-        dimension_name = "chat"
-        dimension_type = dimension_types[self.protocol_version, "minecraft:overworld"]
-        data_pack = data_packs[self.protocol_version]
+
+        dimension_codec = data_packs[self.protocol_version]
+        dimension_name = "minecraft:overworld"
+        dimension_tag = dimension_types[self.protocol_version, dimension_name]
+        world_count = 1
+        world_name = "chat"
 
         join_game = [
-            self.buff_type.pack("i?BB", entity_id, is_hardcore, game_mode, prev_game_mode),
-            self.buff_type.pack_varint(dimension_count),
-            self.buff_type.pack_string(dimension_name),
-            self.buff_type.pack_nbt(data_pack),
-            self.buff_type.pack_nbt(dimension_type),
-            self.buff_type.pack_string(dimension_name),
-            self.buff_type.pack("q", hashed_seed),
-            self.buff_type.pack_varint(max_players),
-            self.buff_type.pack_varint(view_distance),
+            self.buff_type.pack("i?Bb", entity_id, is_hardcore, game_mode, prev_game_mode),
+            self.buff_type.pack_varint(world_count),
+            self.buff_type.pack_string(world_name),
+            self.buff_type.pack_nbt(dimension_codec),
         ]
+
+        if self.protocol_version >= 759:  # 1.19 needs just dimension name, <1.19 needs entire dimension nbt
+            join_game.append(self.buff_type.pack_string(dimension_name))
+        else:
+            join_game.append(self.buff_type.pack_nbt(dimension_tag))
+
+        join_game.append(self.buff_type.pack_string(world_name))
+        join_game.append(self.buff_type.pack("q", hashed_seed))
+        join_game.append(self.buff_type.pack_varint(max_players))
+        join_game.append(self.buff_type.pack_varint(view_distance)),
 
         if self.protocol_version >= 757:  # 1.18
             join_game.append(self.buff_type.pack_varint(simulation_distance))
 
+        join_game.append(self.buff_type.pack("????", is_reduced_debug, is_respawn_screen, is_debug, is_flat))
+
+        if self.protocol_version >= 759:  # 1.19
+            join_game.append(self.buff_type.pack("?", False))
         # Send "Join Game" packet
-        self.send_packet(
-            "join_game",
-            *join_game,
-            self.buff_type.pack("????", is_reduced_debug, is_respawn_screen, is_debug, is_flat))
+        self.send_packet("join_game", *join_game)
 
         # Send "Player Position and Look" packet
         self.send_packet(
             "player_position_and_look",
             self.buff_type.pack("dddff?",
                 0,                         # x
-                255,                       # y
+                500,                       # y  Must be >= build height to pass the "Loading Terrain" screen on 1.18.2
                 0,                         # z
                 0,                         # yaw
                 0,                         # pitch
@@ -94,6 +106,10 @@ class ChatRoomProtocol(ServerProtocol):
         self.factory.send_chat("<%s> %s" % (self.display_name, p_text),
                                sender=self.uuid)
 
+        print("<%s> %s" % (self.display_name, p_text))
+
+        buff.discard()
+
 
 class ChatRoomFactory(ServerFactory):
     protocol = ChatRoomProtocol
@@ -104,11 +120,21 @@ class ChatRoomFactory(ServerFactory):
             sender = UUID(int=0)
 
         for player in self.players:
-            player.send_packet(
-                "chat_message",
-                player.buff_type.pack_chat(message),
-                player.buff_type.pack('b', 0),
-                player.buff_type.pack_uuid(sender))
+            # 1.19+: Use new system message packet to avoid dealing with signatures
+            if player.protocol_version >= 759:
+                if player.protocol_version >= 760:  # 1.19.1 uses a boolean for whether to show message in action bar
+                    player.send_packet("system_message",
+                                       player.buff_type.pack_chat(message),
+                                       player.buff_type.pack('?', False))
+                else:  # 1.19 uses varint for message location like regular chat
+                    player.send_packet("system_message",
+                                       player.buff_type.pack_chat(message),
+                                       player.buff_type.pack_varint(1))
+            else:
+                player.send_packet("chat_message",
+                                   player.buff_type.pack_chat(message),
+                                   player.buff_type.pack('B', 0),
+                                   player.buff_type.pack_uuid(sender))
 
 
 def main(argv):
