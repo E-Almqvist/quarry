@@ -13,7 +13,7 @@ from quarry.net.auth import ProfileCLI
 
 class DataPackDumperProtocol(ClientProtocol):
     def packet_join_game(self, buff):
-        entity_id, is_hardcore, gamemode, prev_gamemode = buff.unpack('i?bb')
+        entity_id, is_hardcore, gamemode, prev_gamemode = buff.unpack("i?bb")
         dimension_names = [buff.unpack_string() for _ in range(buff.unpack_varint())]
         data_pack = buff.unpack_nbt()
         buff.discard()  # Ignore the test of the packet
@@ -57,4 +57,5 @@ def main(argv):
 
 if __name__ == "__main__":
     import sys
+
     main(sys.argv[1:])

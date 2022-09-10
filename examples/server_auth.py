@@ -38,9 +38,12 @@ class AuthFactory(ServerFactory):
 def main(argv):
     # Parse options
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("-a", "--host", default="", help="address to listen on")
-    parser.add_argument("-p", "--port", default=25565, type=int, help="port to listen on")
+    parser.add_argument(
+        "-p", "--port", default=25565, type=int, help="port to listen on"
+    )
     args = parser.parse_args(argv)
 
     # Create factory
@@ -53,4 +56,5 @@ def main(argv):
 
 if __name__ == "__main__":
     import sys
+
     main(sys.argv[1:])

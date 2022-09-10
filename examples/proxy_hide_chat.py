@@ -60,7 +60,11 @@ class QuietBridge(Bridge):
             return
 
         # Ignore message that look like chat when in quiet mode
-        if chat_message is not None and self.quiet_mode and chat_message.startswith("<"):
+        if (
+            chat_message is not None
+            and self.quiet_mode
+            and chat_message.startswith("<")
+        ):
             return
 
         # Pass to downstream
@@ -87,7 +91,10 @@ class QuietBridge(Bridge):
                 if p_position not in (1, 2):  # Ignore system and game info messages
                     # Sender name is sent separately to the message text
                     return ":: <%s> %s" % (
-                    p_sender_name, p_signed_message.unsigned_content or p_signed_message.body.message)
+                        p_sender_name,
+                        p_signed_message.unsigned_content
+                        or p_signed_message.body.message,
+                    )
 
                 return
 
@@ -95,7 +102,9 @@ class QuietBridge(Bridge):
 
             # 1.19+
             if self.downstream.protocol_version == 759:
-                p_unsigned_text = buff.unpack_optional(lambda: buff.unpack_chat().to_string())
+                p_unsigned_text = buff.unpack_optional(
+                    lambda: buff.unpack_chat().to_string()
+                )
                 p_position = buff.unpack_varint()
                 buff.unpack_uuid()  # Sender UUID
                 p_sender_name = buff.unpack_chat()
@@ -106,10 +115,12 @@ class QuietBridge(Bridge):
                     return "<%s> %s" % (p_sender_name, p_unsigned_text or p_text)
 
             elif self.downstream.protocol_version >= 47:  # 1.8.x+
-                p_position = buff.unpack('B')
+                p_position = buff.unpack("B")
                 buff.discard()
 
-                if p_position not in (1, 2) and p_text.strip():  # Ignore system and game info messages
+                if (
+                    p_position not in (1, 2) and p_text.strip()
+                ):  # Ignore system and game info messages
                     return p_text
 
             else:
@@ -117,18 +128,24 @@ class QuietBridge(Bridge):
 
     def send_system(self, message):
         if self.downstream.protocol_version >= 760:  # 1.19.1+
-            self.downstream.send_packet("system_message",
-                               self.downstream.buff_type.pack_chat(message),
-                               self.downstream.buff_type.pack('?', False))  # Overlay false to put in chat
+            self.downstream.send_packet(
+                "system_message",
+                self.downstream.buff_type.pack_chat(message),
+                self.downstream.buff_type.pack("?", False),
+            )  # Overlay false to put in chat
         elif self.downstream.protocol_version == 759:  # 1.19
-            self.downstream.send_packet("system_message",
-                               self.downstream.buff_type.pack_chat(message),
-                               self.downstream.buff_type.pack_varint(1))  # Type 1 for system chat message
+            self.downstream.send_packet(
+                "system_message",
+                self.downstream.buff_type.pack_chat(message),
+                self.downstream.buff_type.pack_varint(1),
+            )  # Type 1 for system chat message
         else:
-            self.downstream.send_packet("chat_message",
-                               self.downstream.buff_type.pack_chat(message),
-                               self.downstream.buff_type.pack('B', 0),
-                               self.downstream.buff_type.pack_uuid(UUID(int=0)))
+            self.downstream.send_packet(
+                "chat_message",
+                self.downstream.buff_type.pack_chat(message),
+                self.downstream.buff_type.pack("B", 0),
+                self.downstream.buff_type.pack_uuid(UUID(int=0)),
+            )
 
 
 class QuietDownstreamFactory(DownstreamFactory):
@@ -139,11 +156,18 @@ class QuietDownstreamFactory(DownstreamFactory):
 def main(argv):
     # Parse options
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("-a", "--listen-host", default="", help="address to listen on")
-    parser.add_argument("-p", "--listen-port", default=25565, type=int, help="port to listen on")
-    parser.add_argument("-b", "--connect-host", default="127.0.0.1", help="address to connect to")
-    parser.add_argument("-q", "--connect-port", default=25565, type=int, help="port to connect to")
+    parser.add_argument(
+        "-p", "--listen-port", default=25565, type=int, help="port to listen on"
+    )
+    parser.add_argument(
+        "-b", "--connect-host", default="127.0.0.1", help="address to connect to"
+    )
+    parser.add_argument(
+        "-q", "--connect-port", default=25565, type=int, help="port to connect to"
+    )
     args = parser.parse_args(argv)
 
     # Create factory
@@ -158,4 +182,5 @@ def main(argv):
 
 if __name__ == "__main__":
     import sys
+
     main(sys.argv[1:])

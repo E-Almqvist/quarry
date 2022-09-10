@@ -45,13 +45,17 @@ class ChatRoomProtocol(ServerProtocol):
         world_name = "chat"
 
         join_game = [
-            self.buff_type.pack("i?Bb", entity_id, is_hardcore, game_mode, prev_game_mode),
+            self.buff_type.pack(
+                "i?Bb", entity_id, is_hardcore, game_mode, prev_game_mode
+            ),
             self.buff_type.pack_varint(world_count),
             self.buff_type.pack_string(world_name),
             self.buff_type.pack_nbt(dimension_codec),
         ]
 
-        if self.protocol_version >= 759:  # 1.19 needs just dimension name, <1.19 needs entire dimension nbt
+        if (
+            self.protocol_version >= 759
+        ):  # 1.19 needs just dimension name, <1.19 needs entire dimension nbt
             join_game.append(self.buff_type.pack_string(dimension_name))
         else:
             join_game.append(self.buff_type.pack_nbt(dimension_tag))
@@ -64,7 +68,11 @@ class ChatRoomProtocol(ServerProtocol):
         if self.protocol_version >= 757:  # 1.18
             join_game.append(self.buff_type.pack_varint(simulation_distance))
 
-        join_game.append(self.buff_type.pack("????", is_reduced_debug, is_respawn_screen, is_debug, is_flat))
+        join_game.append(
+            self.buff_type.pack(
+                "????", is_reduced_debug, is_respawn_screen, is_debug, is_flat
+            )
+        )
 
         if self.protocol_version >= 759:  # 1.19
             join_game.append(self.buff_type.pack("?", False))
@@ -74,15 +82,18 @@ class ChatRoomProtocol(ServerProtocol):
         # Send "Player Position and Look" packet
         self.send_packet(
             "player_position_and_look",
-            self.buff_type.pack("dddff?",
-                0,                         # x
-                500,                       # y  Must be >= build height to pass the "Loading Terrain" screen on 1.18.2
-                0,                         # z
-                0,                         # yaw
-                0,                         # pitch
-                0b00000),                  # flags
-            self.buff_type.pack_varint(0), # teleport id
-            self.buff_type.pack("?", True)) # Leave vehicle,
+            self.buff_type.pack(
+                "dddff?",
+                0,  # x
+                500,  # y  Must be >= build height to pass the "Loading Terrain" screen on 1.18.2
+                0,  # z
+                0,  # yaw
+                0,  # pitch
+                0b00000,
+            ),  # flags
+            self.buff_type.pack_varint(0),  # teleport id
+            self.buff_type.pack("?", True),
+        )  # Leave vehicle,
         # Start sending "Keep Alive" packets
         self.ticker.add_loop(20, self.update_keep_alive)
 
@@ -97,14 +108,15 @@ class ChatRoomProtocol(ServerProtocol):
 
     def update_keep_alive(self):
         # Send a "Keep Alive" packet
-        self.send_packet("keep_alive", self.buff_type.pack('Q', 0))
+        self.send_packet("keep_alive", self.buff_type.pack("Q", 0))
 
     def packet_chat_message(self, buff):
         # When we receive a chat message from the player, ask the factory
         # to relay it to all connected players
         p_text = buff.unpack_string()
-        self.factory.send_chat("<%s> %s" % (self.display_name, p_text),
-                               sender=self.uuid)
+        self.factory.send_chat(
+            "<%s> %s" % (self.display_name, p_text), sender=self.uuid
+        )
 
         print("<%s> %s" % (self.display_name, p_text))
 
@@ -122,27 +134,38 @@ class ChatRoomFactory(ServerFactory):
         for player in self.players:
             # 1.19+: Use new system message packet to avoid dealing with signatures
             if player.protocol_version >= 759:
-                if player.protocol_version >= 760:  # 1.19.1 uses a boolean for whether to show message in action bar
-                    player.send_packet("system_message",
-                                       player.buff_type.pack_chat(message),
-                                       player.buff_type.pack('?', False))
+                if (
+                    player.protocol_version >= 760
+                ):  # 1.19.1 uses a boolean for whether to show message in action bar
+                    player.send_packet(
+                        "system_message",
+                        player.buff_type.pack_chat(message),
+                        player.buff_type.pack("?", False),
+                    )
                 else:  # 1.19 uses varint for message location like regular chat
-                    player.send_packet("system_message",
-                                       player.buff_type.pack_chat(message),
-                                       player.buff_type.pack_varint(1))
+                    player.send_packet(
+                        "system_message",
+                        player.buff_type.pack_chat(message),
+                        player.buff_type.pack_varint(1),
+                    )
             else:
-                player.send_packet("chat_message",
-                                   player.buff_type.pack_chat(message),
-                                   player.buff_type.pack('B', 0),
-                                   player.buff_type.pack_uuid(sender))
+                player.send_packet(
+                    "chat_message",
+                    player.buff_type.pack_chat(message),
+                    player.buff_type.pack("B", 0),
+                    player.buff_type.pack_uuid(sender),
+                )
 
 
 def main(argv):
     # Parse options
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("-a", "--host", default="", help="address to listen on")
-    parser.add_argument("-p", "--port", default=25565, type=int, help="port to listen on")
+    parser.add_argument(
+        "-p", "--port", default=25565, type=int, help="port to listen on"
+    )
     parser.add_argument("--offline", action="store_true", help="offline server")
     args = parser.parse_args(argv)
 
@@ -158,4 +181,5 @@ def main(argv):
 
 if __name__ == "__main__":
     import sys
+
     main(sys.argv[1:])

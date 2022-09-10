@@ -11,7 +11,6 @@ from quarry.net.client import ClientFactory, ClientProtocol
 
 
 class PingProtocol(ClientProtocol):
-
     def status_response(self, data):
         for k, v in sorted(data.items()):
             if k != "favicon":
@@ -27,6 +26,7 @@ class PingFactory(ClientFactory):
 
 def main(argv):
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("host")
     parser.add_argument("-p", "--port", default=25565, type=int)
@@ -36,6 +36,8 @@ def main(argv):
     factory.connect(args.host, args.port)
     reactor.run()
 
+
 if __name__ == "__main__":
     import sys
+
     main(sys.argv[1:])

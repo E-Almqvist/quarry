@@ -19,7 +19,7 @@ class ChatLoggerProtocol(SpawningClientProtocol):
         p_display = False
 
         if self.protocol_version >= 760:
-            p_display = not buff.unpack('?')
+            p_display = not buff.unpack("?")
         else:
             p_display = buff.unpack_varint() != 2
 
@@ -41,7 +41,13 @@ class ChatLoggerProtocol(SpawningClientProtocol):
             if p_position not in (1, 2):  # Ignore system and game info messages
                 # Sender name is sent separately to the message text
                 self.logger.info(
-                    ":: <%s> %s" % (p_sender_name, p_signed_message.unsigned_content or p_signed_message.body.message))
+                    ":: <%s> %s"
+                    % (
+                        p_sender_name,
+                        p_signed_message.unsigned_content
+                        or p_signed_message.body.message,
+                    )
+                )
 
             return
 
@@ -49,7 +55,9 @@ class ChatLoggerProtocol(SpawningClientProtocol):
 
         # 1.19+
         if self.protocol_version == 759:
-            p_unsigned_text = buff.unpack_optional(lambda: buff.unpack_chat().to_string())
+            p_unsigned_text = buff.unpack_optional(
+                lambda: buff.unpack_chat().to_string()
+            )
             p_position = buff.unpack_varint()
             buff.unpack_uuid()  # Sender UUID
             p_sender_name = buff.unpack_chat()
@@ -57,13 +65,17 @@ class ChatLoggerProtocol(SpawningClientProtocol):
 
             if p_position not in (1, 2):  # Ignore system and game info messages
                 # Sender name is sent separately to the message text
-                self.logger.info(":: <%s> %s" % (p_sender_name, p_unsigned_text or p_text))
+                self.logger.info(
+                    ":: <%s> %s" % (p_sender_name, p_unsigned_text or p_text)
+                )
 
         elif self.protocol_version >= 47:  # 1.8.x+
-            p_position = buff.unpack('B')
+            p_position = buff.unpack("B")
             buff.discard()
 
-            if p_position not in (1, 2) and p_text.strip():  # Ignore system and game info messages
+            if (
+                p_position not in (1, 2) and p_text.strip()
+            ):  # Ignore system and game info messages
                 self.logger.info(":: %s" % p_text)
 
         elif p_text.strip():
@@ -95,6 +107,8 @@ def main(argv):
     run(args)
     reactor.run()
 
+
 if __name__ == "__main__":
     import sys
+
     main(sys.argv[1:])
